@@ -1,6 +1,6 @@
 import readline
 
-COMMANDS = ['add_passw', 'remove_passw', 'fetch_passw', 'validate_passw', 'help', 'exit']
+last_fetched_otp = None
 
 def handle_add_passw(otp):
     try:
@@ -11,17 +11,33 @@ def handle_add_passw(otp):
         print(f"Failed to add OTP: {e}")
 
 def handle_remove_passw(otp):
-    # Placeholder for remove command implementation
-    pass
+    try:
+        with open('/dev/otp_list', 'w') as otp_file:
+            otp_file.write(f"remove:{otp}")
+            print(f"Removed OTP: {otp}")
+    except IOError as e:
+        print(f"Failed to remove OTP: {e}")
 
 def handle_fetch_passw():
-    # Placeholder for fetch command implementation
-    pass
+    global last_fetched_otp
+    try:
+        with open('/dev/otp_list', 'r') as otp_file:
+            otp = otp_file.readline().strip()
+            if otp:
+                print(f"Fetched OTP: {otp}")
+                last_fetched_otp = otp
+                return otp
+            else:
+                print("No OTPs available.")
+    except IOError as e:
+        print(f"Failed to fetch OTP: {e}")
 
 def handle_validate_passw(otp):
-    # Placeholder for validate command implementation
-    pass
-
+    global last_fetched_otp
+    if otp == last_fetched_otp:
+        print(f"OTP {otp} is valid.")
+    else:
+        print(f"OTP {otp} is invalid or already used.")
 def handle_help():
     print("Available commands:")
     print("add_passw <otp_password>: Add a new password to the list.")
