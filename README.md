@@ -14,10 +14,19 @@
 
 2. sudo insmod base_otp.ko
 
-3. dmesg (the hello msg appears at the end)
+3. dmesg | (the status msg appears at the end)
 
-4. sudo rmmod base_otp
+4. python3 otp.py
+   - add a password to the list
+   - remove a password from the list
+   - fetch a password
+   - validate a fetched password
 
+6. sudo rmmod base_otp
+
+TODO:
+- check that we cannot remove a password that is non existant
+- check that once a password is validated it is wiped from the local memory of the python tool
 
 ### USEFUL COMMANDS
 
