@@ -2,21 +2,20 @@ import readline
 
 last_fetched_otp = None
 
-def handle_add_passw(otp):
+def write_operation_and_check_status(operation_command, operation_name):
     try:
         with open('/dev/otp_list', 'w') as otp_file:
-            otp_file.write(f"add:{otp}")
-            print(f"Added OTP: {otp}")
+            otp_file.write(operation_command)
+            print(f"Successfully {operation_name} OTP.")
+
     except IOError as e:
-        print(f"Failed to add OTP: {e}")
+        print(f"Failed to perform operation '{operation_command}': {e}")
+
+def handle_add_passw(otp):
+    write_operation_and_check_status(f"add:{otp}", "adding")
 
 def handle_remove_passw(otp):
-    try:
-        with open('/dev/otp_list', 'w') as otp_file:
-            otp_file.write(f"remove:{otp}")
-            print(f"Removed OTP: {otp}")
-    except IOError as e:
-        print(f"Failed to remove OTP: {e}")
+    write_operation_and_check_status(f"remove:{otp}", "removing")
 
 def handle_fetch_passw():
     global last_fetched_otp
@@ -36,8 +35,10 @@ def handle_validate_passw(otp):
     global last_fetched_otp
     if otp == last_fetched_otp:
         print(f"OTP {otp} is valid.")
+        last_fetched_otp = ""
     else:
         print(f"OTP {otp} is invalid or already used.")
+
 def handle_help():
     print("Available commands:")
     print("add_passw <otp_password>: Add a new password to the list.")
@@ -53,18 +54,13 @@ COMMAND_HANDLERS = {
 }
 
 def complete(text, state):
-    # Split the line into words and find the current word being typed
     line = readline.get_line_buffer().split()
     if not line:
-        # No input: autocomplete commands
         options = COMMAND_HANDLERS.keys()
     else:
-        # Input present: decide based on the position and content
         if len(line) > 1 or (text and line[0] in COMMAND_HANDLERS):
-            # Autocompleting beyond the first word or mid-command (for commands without args)
-            options = []  # No further suggestions; could be extended for subcommands/args
+            options = []
         else:
-            # Autocompleting the command itself
             options = [cmd for cmd in COMMAND_HANDLERS.keys() if cmd.startswith(text)]
     
     try:
