@@ -5,7 +5,9 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
-#include <linux/list.h> 
+#include <linux/list.h>
+
+#include "base_otp.h"
 
 #define DEVICE_NAME "otp_list"
 #define CLASS_NAME  "otp"
@@ -35,7 +37,7 @@ static struct file_operations fops = {
    .release = dev_release,
 };
 
-static int __init otp_init(void) {
+int __init list_otp_init(void) {
    majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
    if (majorNumber<0) {
       printk(KERN_ALERT "OTP failed to register a major number\n");
@@ -47,7 +49,7 @@ static int __init otp_init(void) {
    return 0;
 }
 
-static void __exit otp_exit(void) {
+void __exit list_otp_exit(void) {
    device_destroy(otpClass, MKDEV(majorNumber, 0));
    class_unregister(otpClass);
    class_destroy(otpClass);
@@ -166,13 +168,5 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
    return len;
 }
 
-
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Hassan ZABATT");
-MODULE_AUTHOR("Florent ROSSIGNOL");
-MODULE_AUTHOR("Pol-Antoine LOISEAU");
-MODULE_DESCRIPTION("Simple OTP with dynamic listing.");
-MODULE_VERSION("0.4");
-
-module_init(otp_init);
-module_exit(otp_exit);
+//module_init(list_otp_init);
+//module_exit(list_otp_exit);
