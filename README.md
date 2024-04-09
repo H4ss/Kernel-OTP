@@ -28,7 +28,7 @@
 
 TODO:
 - check that we cannot remove a password that is non existant
-- check that once a password is validated it is wiped from the local memory of the python tool
+- adding the world readable permissions to the created devices to use to python tool in non-root
 
 ### USEFUL COMMANDS
 
