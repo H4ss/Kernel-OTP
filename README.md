@@ -12,28 +12,32 @@
 
 ## launch step:
 
+0. su
+
 1. make (from the base directory)
 
-2. sudo insmod base_otp.ko
+2. insmod otp_lkm_module.ko
 
-3. dmesg | (the status msg appears at the end)
+3. dmesg | tail (the status msg appears at the end)
 
 4. python3 otp.py
    - add a password to the list
    - remove a password from the list
    - fetch a password
    - validate a fetched password
+   - fetch a time based OTP
+   - modify the key to generate the OTP
+   - modify the time interval
 
-6. sudo rmmod base_otp
+6. sudo rmmod otp_lkm_module
 
 TODO:
-- check that we cannot remove a password that is non existant
-- adding the world readable permissions to the created devices to use to python tool in non-root
+- adding the world readable permissions to the created devices to use to python tool in non-root (IF NEEDED, ASK THE TEACHER FIRST)
 
 ### USEFUL COMMANDS
 
 sudo -i  
-cd /media/sf_kernel # where my shared folder is  
+cd /media/sf_kernel # where my shared folder is. To be changed in the vbox conf.
 code . --no-sandbox --user-data-dir "." # vscode with the sudo mode on  
 
 ### KERNEL DOWNGRADE
