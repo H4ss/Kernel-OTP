@@ -170,3 +170,9 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
 
 //module_init(list_otp_init);
 //module_exit(list_otp_exit);
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Hassan ZABATT");
+MODULE_AUTHOR("Florent ROSSIGNOL");
+MODULE_AUTHOR("Pol-Antoine LOISEAU");
+MODULE_DESCRIPTION("Time OTP and simple OTP with dynamic listing.");
+MODULE_VERSION("0.4");

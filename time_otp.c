@@ -14,7 +14,7 @@
 #include "time_otp.h"
 
 #define DEVICE_NAME "otp_time"
-#define CLASS_NAME "otp"
+#define CLASS_NAME "totp"
 #define TOTP_MAX_SECRET_KEY_SIZE 32
 #define TOTP_DIGITS 6
 
@@ -81,7 +81,9 @@ void __exit time_otp_exit(void) {
 
 
 unsigned long get_current_counter(void) {
-    return (unsigned long)(ktime_get_real_seconds() / totp_time_step);
+    unsigned long counter = (unsigned long)(ktime_get_real_seconds() / totp_time_step);
+    printk(KERN_INFO "Current counter: %lu\n", counter);
+    return counter;
 }
 
 /**
@@ -93,7 +95,7 @@ unsigned long get_current_counter(void) {
  */
 static int update_totp_secret(const char *new_key, size_t len) {
     // Ensure the new key length is within our allowed bounds
-    if (len >= TOTP_SECRET_KEY_SIZE) {
+    if (len >= TOTP_MAX_SECRET_KEY_SIZE) {
         printk(KERN_WARNING "Time-based OTP: Provided key is too long.\n");
         return -EFAULT;
     }
@@ -102,11 +104,11 @@ static int update_totp_secret(const char *new_key, size_t len) {
     mutex_lock(&totp_key_mutex);
 
     // Clear the existing key
-    memset(totp_secret_key, 0, TOTP_SECRET_KEY_SIZE);
+    memset(totp_secret_key, 0, TOTP_MAX_SECRET_KEY_SIZE);
     
     // Copy the new key
     strncpy(totp_secret_key, new_key, len);
-    totp_secret_key_length = len;
+    totp_secret_key_size = len;
 
     // Unlock the mutex after updating the key
     mutex_unlock(&totp_key_mutex);
@@ -136,32 +138,39 @@ static int update_totp_time_step(unsigned int new_time_step) {
     return 0;
 }
 
-static int hmac_sha1(const unsigned char *key, unsigned int keylen,
-                     const unsigned char *data, unsigned int datalen,
-                     unsigned char *digest) {
+static int hmac_sha1(const unsigned char *key, unsigned int keylen, const unsigned char *data, unsigned int datalen, unsigned char *digest) {
     struct crypto_shash *tfm;
     struct shash_desc *shash;
     int ret;
 
+    // Allocate a transformation context for HMAC-SHA1
     tfm = crypto_alloc_shash("hmac(sha1)", 0, 0);
     if (IS_ERR(tfm)) {
-        printk(KERN_ERR "Failed to allocate transform for hmac(sha1): %ld\n", PTR_ERR(tfm));
+        printk(KERN_ERR "Failed to allocate transformation context for hmac(sha1): %ld\n", PTR_ERR(tfm));
         return PTR_ERR(tfm);
     }
+
+    // Allocate descriptor
     shash = kmalloc(sizeof(struct shash_desc) + crypto_shash_descsize(tfm), GFP_KERNEL);
     if (!shash) {
         crypto_free_shash(tfm);
-        printk(KERN_ERR "Failed to allocate shash_desc\n");
+        printk(KERN_ERR "Failed to allocate shash descriptor\n");
         return -ENOMEM;
     }
+
     shash->tfm = tfm;
-    shash->flags = 0x0;
-    if ((ret = crypto_shash_setkey(tfm, key, keylen))) {
+    // Note: No 'flags' assignment is necessary based on your kernel version's requirements
+
+    // Set the HMAC key
+    ret = crypto_shash_setkey(tfm, key, keylen);
+    if (ret) {
         printk(KERN_ERR "crypto_shash_setkey() failed: %d\n", ret);
         goto out;
     }
-    sg_init_one(&sg[0], data, datalen);
-    if ((ret = crypto_shash_digest(shash, sg, datalen, digest))) {
+
+    // Perform the HMAC operation directly on the given data
+    ret = crypto_shash_digest(shash, data, datalen, digest);
+    if (ret) {
         printk(KERN_ERR "crypto_shash_digest() failed: %d\n", ret);
     }
 
@@ -176,6 +185,8 @@ unsigned int generate_totp(void) {
     unsigned long counter;
     unsigned int otp = 0;
     int ret;
+    unsigned int mod_base = 1;
+    int i = 0;
 
     counter = get_current_counter();
     counter = cpu_to_be64(counter); // convert little endian to big endian and no-op on big endian
@@ -187,9 +198,15 @@ unsigned int generate_totp(void) {
     }
 
     // Static truncation (as oppose to the dynamic one in RFC6238) and modular reduction to fit the OTP size
-    otp = (digest[19] & 0x7f) << 24 | (digest[20] & 0xff) << 16 | (digest[21] & 0xff) << 8 | (digest[22] & 0xff);
-    otp %= (unsigned int)pow(10, TOTP_DIGITS);
-
+    otp = (digest[10] & 0x7f) << 24 | (digest[11] & 0xff) << 16 | (digest[12] & 0xff) << 8 | (digest[13] & 0xff);
+    //otp %= (unsigned int)pow(10, TOTP_DIGITS);
+    while (i < TOTP_DIGITS) {
+        mod_base *= 10;
+        i++;
+    }
+    otp %= mod_base;
+    printk(KERN_INFO "Timestamp: %lu\n", be64_to_cpu(counter));
+    printk(KERN_INFO "Digest extracted: %02x%02x%02x%02x\n", digest[10], digest[11], digest[12], digest[13]);
     printk(KERN_INFO "Generated TOTP: %u\n", otp);
     return otp;
 }
@@ -269,3 +286,13 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
     }
     return len;
 }
+
+//module_init(time_otp_init);
+//module_exit(time_otp_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Hassan ZABATT");
+MODULE_AUTHOR("Florent ROSSIGNOL");
+MODULE_AUTHOR("Pol-Antoine LOISEAU");
+MODULE_DESCRIPTION("Time OTP and simple OTP with dynamic listing.");
+MODULE_VERSION("0.4");
