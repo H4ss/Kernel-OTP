@@ -80,6 +80,10 @@ void __exit time_otp_exit(void) {
 }
 
 
+/**
+ * @brief Calculates and returns the current counter value.
+ * @return Current counter value.
+ */
 unsigned long get_current_counter(void) {
     unsigned long counter = (unsigned long)(ktime_get_real_seconds() / totp_time_step);
     printk(KERN_INFO "Current counter: %lu\n", counter);
@@ -100,19 +104,11 @@ static int update_totp_secret(const char *new_key, size_t len) {
         return -EFAULT;
     }
 
-    // Lock the mutex before updating the key
     mutex_lock(&totp_key_mutex);
-
-    // Clear the existing key
-    memset(totp_secret_key, 0, TOTP_MAX_SECRET_KEY_SIZE);
-    
-    // Copy the new key
+    memset(totp_secret_key, 0, TOTP_MAX_SECRET_KEY_SIZE); 
     strncpy(totp_secret_key, new_key, len);
     totp_secret_key_size = len;
-
-    // Unlock the mutex after updating the key
     mutex_unlock(&totp_key_mutex);
-
     printk(KERN_INFO "Time-based OTP: Secret key updated successfully.\n");
     return 0;
 }
@@ -159,7 +155,7 @@ static int hmac_sha1(const unsigned char *key, unsigned int keylen, const unsign
     }
 
     shash->tfm = tfm;
-    // Note: No 'flags' assignment is necessary based on your kernel version's requirements
+    // Note: No 'flags' assignment is necessary based on the kernel version's requirements
 
     // Set the HMAC key
     ret = crypto_shash_setkey(tfm, key, keylen);
@@ -180,6 +176,10 @@ out:
     return ret;
 }
 
+/**
+ * @brief Generates a Time-based One-Time Password (TOTP).
+ * @return Generated TOTP.
+ */
 unsigned int generate_totp(void) {
     unsigned char digest[SHA1_DIGEST_SIZE];
     unsigned long counter;
@@ -205,9 +205,6 @@ unsigned int generate_totp(void) {
         i++;
     }
     otp %= mod_base;
-    printk(KERN_INFO "Timestamp: %lu\n", be64_to_cpu(counter));
-    printk(KERN_INFO "Digest extracted: %02x%02x%02x%02x\n", digest[10], digest[11], digest[12], digest[13]);
-    printk(KERN_INFO "Generated TOTP: %u\n", otp);
     return otp;
 }
 
@@ -223,39 +220,32 @@ static int dev_release(struct inode *inodep, struct file *filep) {
 
 
 static ssize_t dev_read(struct file *filep, char *buffer, size_t len, loff_t *offset) {
-    // Temporary buffer to hold the TOTP as a string
-    char temp_buffer[10]; // Large enough for a null-terminated 6-digit TOTP
+    char temp_buffer[10]; // 6 digits + null terminator + 3 extra bytes for safety
     unsigned int totp;
     int error_count;
     
     // Check if we've already sent the current TOTP to the user
     if (*offset > 0) {
-        // The TOTP has already been read, indicating we're done
         return 0;
     }
 
-    // Generate the current TOTP (the function you defined earlier)
+    // Generate the TOTP
     totp = generate_totp();
-
-    // Convert the TOTP to a string (ensure temp_buffer is large enough)
     snprintf(temp_buffer, sizeof(temp_buffer), "%06u", totp);
-
-    // Copy the string to user space
     error_count = copy_to_user(buffer, temp_buffer, strlen(temp_buffer));
 
-    // If there's an error copying to user space, return an error
+    // Check if the copy_to_user operation failed
     if (error_count == 0) {
-        // Update the offset to indicate we've sent the TOTP
         *offset = strlen(temp_buffer);
-        return *offset; // Return the number of bytes sent
+        return *offset;
     } else {
         printk(KERN_INFO "Failed to send TOTP to the user\n");
-        return -EFAULT; // Return a bad address message
+        return -EFAULT;
     }
 }
 
 static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset) {
-    char write_data[64]; // Temporary buffer for write data
+    char write_data[64];
     unsigned int new_step;
     ssize_t ret;
 
@@ -268,7 +258,7 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
         printk(KERN_WARNING "Time-based OTP: Error copying data from user.\n");
         return -EFAULT;
     }
-    write_data[len] = '\0'; // Ensure null-termination
+    write_data[len] = '\0';
 
     if (strncmp(write_data, "key:", 4) == 0) {
         // Update the secret key
@@ -286,9 +276,6 @@ static ssize_t dev_write(struct file *filep, const char *buffer, size_t len, lof
     }
     return len;
 }
-
-//module_init(time_otp_init);
-//module_exit(time_otp_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Hassan ZABATT");
